@@ -1,0 +1,18 @@
+=== lz Floating point compression library ===
+
+ * Compile      : make
+
+ * Simple run   : make test
+
+ * Generated    : Generates a file on the fly with almost-random data.
+
+    -32bits     : ./example 32
+    -64bits     : ./example 64
+
+ * Your data    : Compress and uncompress your file of pure floating point numbers.
+
+    -32bits     : ./example filename 32
+    -64bits     : ./example filename 64
+
+ * Clean        : make clean
+
