@@ -19,6 +19,10 @@
 #ifndef  _LZ_H
 #define  _LZ_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define BYTE_FREQ           2
 #define MAX_LOSSY           2
 #define MAX_LEVEL           9
@@ -56,6 +60,10 @@ extern int    lzCompressFloat(uchar *dstBuf, ulong *outSize, float *darBuf, ulon
 extern int  lzUncompressFloat(float *darBuf, ulong *darSize, uchar *srcBuf, ulong inSize);
 extern int   lzCompressDouble(uchar *dstBuf, ulong *outSize, double *daBuf, ulong daSize, short level, short lossy);
 extern int lzUncompressDouble(double *daBuf, ulong *darSize, uchar *srcBuf, ulong inSize);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif   /* ----- #ifndef _LZ_H  ----- */
 
