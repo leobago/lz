@@ -16,7 +16,7 @@
 
 CC 		= gcc
 AR		= ar
-FLAGS		= -W -Wall
+FLAGS		= -W -Wall -fpic
 
 all: 		lib example
 
@@ -24,6 +24,7 @@ lib:		miniz.c lz.c
 	$(CC) $(FLAGS) -c miniz.c
 	$(CC) $(FLAGS) -c lz.c
 	$(AR) rvs liblz.a miniz.o lz.o
+	$(CC) -shared -o liblz.so miniz.o lz.o
 
 example:	lib example.c
 	$(CC) $(FLAGS) -o example example.c -L. -llz
