@@ -15,12 +15,18 @@
 ##=======================================================================
 
 CC 		= gcc
+AR		= ar
 FLAGS		= -W -Wall
 
-all: 		example
+all: 		lib example
 
-example:	miniz.c lz.c example.c
-	$(CC) $(FLAGS) -o example miniz.c lz.c example.c
+lib:		miniz.c lz.c
+	$(CC) $(FLAGS) -c miniz.c
+	$(CC) $(FLAGS) -c lz.c
+	$(AR) rvs liblz.a miniz.o lz.o
+
+example:	lib example.c
+	$(CC) $(FLAGS) -o example example.c -L. -llz
 
 test:
 	./example 64
