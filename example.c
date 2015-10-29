@@ -278,7 +278,10 @@ int lzUncompressFile(char *pDstFn, char *pUcmFn, int prec)
 int main(int argc, char *argv[])
 {
     int res, level = 1, size = 1024, prec = sizeof(double);
-    char pSrcFn[64], pMzpFn[64], pLzpFn[64], pUmzFn[64], pUlzFn[64];
+    char pSrcFn[64], pMzpFn[64], pUmzFn[64];
+    char pLz0pFn[64], pUlz0Fn[64];
+    char pLz1pFn[64], pUlz1Fn[64];
+    char pLz2pFn[64], pUlz2Fn[64];
 
     if (argc == 2) {
         sprintf(pSrcFn, "doubleDataset");
@@ -313,31 +316,35 @@ int main(int argc, char *argv[])
         }
     }
 
+    sprintf(pLz0pFn, "%s.lz0",  pSrcFn);
+    sprintf(pUlz0Fn, "%s.ulz0", pSrcFn);
+    sprintf(pLz1pFn, "%s.lz1",  pSrcFn);
+    sprintf(pUlz1Fn, "%s.ulz1", pSrcFn);
+    sprintf(pLz2pFn, "%s.lz2",  pSrcFn);
+    sprintf(pUlz2Fn, "%s.ulz2", pSrcFn);
     sprintf(pMzpFn, "%s.mz",  pSrcFn);
-    sprintf(pLzpFn, "%s.lz",  pSrcFn);
     sprintf(pUmzFn, "%s.umz", pSrcFn);
-    sprintf(pUlzFn, "%s.ulz", pSrcFn);
-    printf("Original file %s, %d MB of size, precision %d bits and compression level %d\n", pSrcFn, size, prec*8, level);
+    printf("Original file %s, precision %d bits and compression level %d\n", pSrcFn, prec*8, level);
 
     printf("=================================================================================\n");
     printf("                    |  Lossy  |  Input  |  Output | Ratio |  Time  | Troughput  |\n");
     printf("=================================================================================\n");
-    res = lzCompressFile(pSrcFn, pLzpFn, prec, level, 2);
+    res = lzCompressFile(pSrcFn, pLz2pFn, prec, level, 2);
     if (res == EXIT_FAILURE) return EXIT_FAILURE;
 
-    res = lzUncompressFile(pLzpFn, pUlzFn, prec);
+    res = lzUncompressFile(pLz2pFn, pUlz2Fn, prec);
     if (res == EXIT_FAILURE) return EXIT_FAILURE;
 
-    res = lzCompressFile(pSrcFn, pLzpFn, prec, level, 1);
+    res = lzCompressFile(pSrcFn, pLz1pFn, prec, level, 1);
     if (res == EXIT_FAILURE) return EXIT_FAILURE;
 
-    res = lzUncompressFile(pLzpFn, pUlzFn, prec);
+    res = lzUncompressFile(pLz1pFn, pUlz1Fn, prec);
     if (res == EXIT_FAILURE) return EXIT_FAILURE;
 
-    res = lzCompressFile(pSrcFn, pLzpFn, prec, level, 0);
+    res = lzCompressFile(pSrcFn, pLz0pFn, prec, level, 0);
     if (res == EXIT_FAILURE) return EXIT_FAILURE;
 
-    res = lzUncompressFile(pLzpFn, pUlzFn, prec);
+    res = lzUncompressFile(pLz0pFn, pUlz0Fn, prec);
     if (res == EXIT_FAILURE) return EXIT_FAILURE;
 
     res = compressFile(pSrcFn, pMzpFn, level);
