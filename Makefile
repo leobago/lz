@@ -18,7 +18,7 @@ CC 		= gcc
 AR		= ar
 FLAGS		= -W -Wall -fpic
 
-all: 		lib example
+all: 		lib example compare fclean
 
 lib:		miniz.c lz.c
 	$(CC) $(FLAGS) -c miniz.c
@@ -29,6 +29,13 @@ lib:		miniz.c lz.c
 example:	lib example.c
 	$(CC) $(FLAGS) -o example example.c -L. -llz
 
+compare:	lib compare.c
+	$(CC) $(FLAGS) -o compare compare.c -L. -llz
+
+fclean:		lib clean.c
+	$(CC) $(FLAGS) -o clean clean.c -L. -llz
+
+
 test:
 	./example 64
 
@@ -37,7 +44,7 @@ check:
 	diff doubleDataset doubleDataset.ulz
 
 clean:
-	rm -f *.o doubleDataset* example
+	rm -f *.o doubleDataset* example compare clean liblz.a liblz.so
 
 .PHONY:		example test check clean
 
