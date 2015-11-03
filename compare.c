@@ -66,6 +66,7 @@ int compareFiles(char *pSrc1Fn, char *pSrc2Fn, int prec)
             float diff = (float) fabs((double) (buf1 - buf2));
             size1 = size1 - 1;
             if (diff > maxF) maxF = diff;
+            //if (diff > 0.1) printf("%f != %f\n", buf1, buf2);
         
         } else {
             double buf1, buf2;
