@@ -23,8 +23,10 @@
 extern "C" {
 #endif
 
-#define BYTE_FREQ           2
-#define MAX_LOSSY           2
+#define FORCE_COMP          1
+#define VERBOSE             0
+#define BYTE_FREQ           1
+#define MAX_LOSSY           3
 #define MAX_LEVEL           9
 #define MAX_STATS           10000
 #define BUF_SIZE            (1024 * 1024)
