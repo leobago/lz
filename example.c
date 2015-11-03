@@ -21,15 +21,15 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
+#include <math.h>
 #include "lz.h"
 
 
-int printResults(short lossy, ulong inSize, ulong outSize, float tt, int comp)
+int printResults(short lossy, ulong inSize, ulong outSize, float t1, float t2, double error)
 {
-    int mb = 1024*1024, out = outSize;
-    if (comp) out = inSize;
-    printf("| %d bytes | %4ld MB | %4ld MB | %3ld %% | %04.1f s | %05.1f MB/s |\n",
-            lossy, inSize/mb, outSize/mb, (outSize*100)/inSize, tt, out/(mb*tt));
+    float mb = 1024.0*1024.0;
+    printf("| %d bytes | %4.1f MB | %4.1f MB | %5.1f %% |  %05.1f s | %04.1f s | %7.4f |\n",
+            lossy, inSize/mb, outSize/mb, (outSize*100.0)/inSize, t1, t2, error);
     return EXIT_SUCCESS;
 }
 
@@ -58,7 +58,88 @@ int createFileDouble(char *pSrcFn, int sizeInMB, int prec)
     return EXIT_SUCCESS;
 }
 
-int compressFile(char *pSrcFn, char *pDstFn, int level)
+ulong getFileSize(char *pSrcFn)
+{
+    ulong size;
+    FILE *pFile = fopen(pSrcFn, "rb");
+    if (pFile == NULL)
+    {
+        printf("Failed to open input file.");
+        return EXIT_FAILURE;
+    }
+    fseek(pFile, 0, SEEK_END);
+    size = ftell(pFile);
+    fclose(pFile);
+    return size;
+}
+
+double compareFiles(char *pSrc1Fn, char *pSrc2Fn, int prec)
+{
+    ulong size1, size2;
+    float maxF = 0;
+    double maxD = 0;
+
+    FILE *pFile1 = fopen(pSrc1Fn, "rb");
+    if (pFile1 == NULL)
+    {
+        printf("Failed to open input file.");
+        return EXIT_FAILURE;
+    }
+    fseek(pFile1, 0, SEEK_END);
+    size1 = ftell(pFile1)/prec;
+    fseek(pFile1, 0, SEEK_SET);
+
+    FILE *pFile2 = fopen(pSrc2Fn, "rb");
+    if (pFile2 == NULL)
+    {
+        printf("Failed to open input file.");
+        return EXIT_FAILURE;
+    }
+    fseek(pFile2, 0, SEEK_END);
+    size2 = ftell(pFile2)/prec;
+    fseek(pFile2, 0, SEEK_SET);
+
+    if (size1 != size2)
+    {
+        printf("The files have different sizes: %ld != %ld \n", size1, size2);
+        return EXIT_FAILURE;
+    }
+
+    while (size1 > 0)
+    {
+        if (prec == 4)
+        {
+            float buf1, buf2;
+            fread(&buf1, sizeof(float), 1, pFile1);
+            fread(&buf2, sizeof(float), 1, pFile2);
+            float diff = (float) fabs((double) (buf1 - buf2));
+            size1 = size1 - 1;
+            if (diff > maxF) maxF = diff;
+        } else {
+            double buf1, buf2;
+            fread(&buf1, sizeof(double), 1, pFile1);
+            fread(&buf2, sizeof(double), 1, pFile2);
+            double diff = fabs(buf1 - buf2);
+            if (diff > maxD) maxD = diff;
+            size1 = size1 - 1;
+        }
+    }
+    
+    fclose(pFile1);
+    fclose(pFile2);
+
+    if (prec == 4)
+    {
+        return (double)maxF;
+    } else {
+        return maxD;
+    }
+
+    return EXIT_FAILURE;
+}
+
+
+float compressFile(char *pSrcFn, char *pDstFn, int level)
 {
     struct timeval start, end;
     ulong outSize, inSize;
@@ -96,15 +177,13 @@ int compressFile(char *pSrcFn, char *pDstFn, int level)
     fwrite(dstBuf, 1, outSize, pFile);
     fclose(pFile);
     float tt = end.tv_sec-start.tv_sec+((end.tv_usec-start.tv_usec)/1000000.0);
-    printf("*     Compressing   ");
-    printResults(0, inSize, outSize, tt, 1);
     free(srcBuf);
     free(dstBuf);
-    return EXIT_SUCCESS;
+    return tt;
 }
 
 
-int uncompressFile(char *pDstFn, char *pUcmFn)
+float uncompressFile(char *pDstFn, char *pUcmFn)
 {
     struct timeval start, end;
     ulong outSize, inSize;
@@ -143,16 +222,14 @@ int uncompressFile(char *pDstFn, char *pUcmFn)
     fwrite(dstBuf, 1, outSize, pFile);
     fclose(pFile);
     float tt = end.tv_sec-start.tv_sec+((end.tv_usec-start.tv_usec)/1000000.0);
-    printf("*   Uncompressing   ");
-    printResults(0, inSize, outSize, tt, 0);
     free(srcBuf);
     free(dstBuf);
 
-    return EXIT_SUCCESS;
+    return tt;
 }
 
 
-int lzCompressFile(char *pSrcFn, char *pDstFn, int prec, short level, short lossy)
+float lzCompressFile(char *pSrcFn, char *pDstFn, int prec, short level, short lossy)
 {
     struct timeval start, end;
     ulong outSize, inSize, nbEle;
@@ -202,14 +279,12 @@ int lzCompressFile(char *pSrcFn, char *pDstFn, int prec, short level, short loss
     fwrite(dstBuf, 1, outSize, pFile);
     fclose(pFile);
     float tt = end.tv_sec-start.tv_sec+((end.tv_usec-start.tv_usec)/1000000.0);
-    printf("*   lzCompressing   ");
-    printResults(lossy, inSize, outSize, tt, 1);
     free(dstBuf);
-    return EXIT_SUCCESS;
+    return tt;
 }
 
 
-int lzUncompressFile(char *pDstFn, char *pUcmFn, int prec)
+float lzUncompressFile(char *pDstFn, char *pUcmFn, int prec)
 {
     struct timeval start, end;
     ulong outSize, inSize, darSize;
@@ -267,21 +342,19 @@ int lzUncompressFile(char *pDstFn, char *pUcmFn, int prec)
     }
     outSize = darSize*prec;
     float tt = end.tv_sec-start.tv_sec+((end.tv_usec-start.tv_usec)/1000000.0);
-    printf("* lzUncompressing   ");
-    printResults(0, inSize, outSize, tt, 0);
     free(srcBuf);
 
-    return EXIT_SUCCESS;
+    return tt;
 }
 
 
 int main(int argc, char *argv[])
 {
-    int res, level = 1, size = 1024, prec = sizeof(double);
-    char pSrcFn[64], pMzpFn[64], pUmzFn[64];
-    char pLz0pFn[64], pUlz0Fn[64];
-    char pLz1pFn[64], pUlz1Fn[64];
-    char pLz2pFn[64], pUlz2Fn[64];
+    int i, res, level = 9, size = 1024, prec = sizeof(double);
+    char pSrcFn[64], pCmzFn[64], pUmzFn[64], pClzFn[64], pUlzFn[64];
+    float cmpTime, dcpTime;
+    double error;
+    ulong inSize, outSize;
 
     if (argc == 2) {
         sprintf(pSrcFn, "doubleDataset");
@@ -316,43 +389,36 @@ int main(int argc, char *argv[])
         }
     }
 
-    sprintf(pLz0pFn, "%s.lz0",  pSrcFn);
-    sprintf(pUlz0Fn, "%s.ulz0", pSrcFn);
-    sprintf(pLz1pFn, "%s.lz1",  pSrcFn);
-    sprintf(pUlz1Fn, "%s.ulz1", pSrcFn);
-    sprintf(pLz2pFn, "%s.lz2",  pSrcFn);
-    sprintf(pUlz2Fn, "%s.ulz2", pSrcFn);
-    sprintf(pMzpFn, "%s.mz",  pSrcFn);
+    inSize = getFileSize(pSrcFn);
+    sprintf(pCmzFn, "%s.cmz", pSrcFn);
     sprintf(pUmzFn, "%s.umz", pSrcFn);
     printf("Original file %s, precision %d bits and compression level %d\n", pSrcFn, prec*8, level);
-
-    printf("=================================================================================\n");
-    printf("                    |  Lossy  |  Input  |  Output | Ratio |  Time  | Troughput  |\n");
-    printf("=================================================================================\n");
-    res = lzCompressFile(pSrcFn, pLz2pFn, prec, level, 2);
+    printf("===========================================================================================\n");
+    printf("                    |  Lossy  |  Input  |  Output | C.Ratio | Compress | Decomp |  Error  |\n");
+    printf("===========================================================================================\n");
+ 
+    cmpTime = compressFile(pSrcFn, pCmzFn, level);
     if (res == EXIT_FAILURE) return EXIT_FAILURE;
-
-    res = lzUncompressFile(pLz2pFn, pUlz2Fn, prec);
+    dcpTime = uncompressFile(pCmzFn, pUmzFn);
     if (res == EXIT_FAILURE) return EXIT_FAILURE;
-
-    res = lzCompressFile(pSrcFn, pLz1pFn, prec, level, 1);
-    if (res == EXIT_FAILURE) return EXIT_FAILURE;
-
-    res = lzUncompressFile(pLz1pFn, pUlz1Fn, prec);
-    if (res == EXIT_FAILURE) return EXIT_FAILURE;
-
-    res = lzCompressFile(pSrcFn, pLz0pFn, prec, level, 0);
-    if (res == EXIT_FAILURE) return EXIT_FAILURE;
-
-    res = lzUncompressFile(pLz0pFn, pUlz0Fn, prec);
-    if (res == EXIT_FAILURE) return EXIT_FAILURE;
-
-    res = compressFile(pSrcFn, pMzpFn, level);
-    if (res == EXIT_FAILURE) return EXIT_FAILURE;
-
-    res = uncompressFile(pMzpFn, pUmzFn);
-    if (res == EXIT_FAILURE) return EXIT_FAILURE;
-
+    error = compareFiles(pSrcFn, pUmzFn, prec);
+    outSize = getFileSize(pCmzFn);
+    printf("* zip Compression   ");
+    printResults(0, inSize, outSize, cmpTime, dcpTime, error);
+   
+    for(i = 0; i < 4; i++)
+    {
+        sprintf(pClzFn, "%s.clz%i", pSrcFn, i);
+        sprintf(pUlzFn, "%s.ulz%i", pSrcFn, i);
+        cmpTime = lzCompressFile(pSrcFn, pClzFn, prec, level, i);
+        if (res == EXIT_FAILURE) return EXIT_FAILURE;
+        dcpTime = lzUncompressFile(pClzFn, pUlzFn, prec);
+        if (res == EXIT_FAILURE) return EXIT_FAILURE;
+        error = compareFiles(pSrcFn, pUlzFn, prec);
+        outSize = getFileSize(pClzFn);
+        printf("*  lz Compression   ");
+        printResults(i, inSize, outSize, cmpTime, dcpTime, error);
+    }
 
     return EXIT_SUCCESS;
 }
