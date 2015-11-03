@@ -55,6 +55,7 @@ double reverseDouble( const float inDouble )
 
 int cleanFile(char *pSrc1Fn, double min, double max, int prec, int swap)
 {
+    double mi = max, ma = min;
     char pSrc2Fn[64];
     ulong size1;
 
@@ -85,6 +86,8 @@ int cleanFile(char *pSrc1Fn, double min, double max, int prec, int swap)
             if (swap) buf = reverseFloat(buf);
             if (buf >= (float)min && buf <= (float)max)
             {
+                if (buf > ma) ma = buf;
+                if (buf < mi) mi = buf;
                 fwrite(&buf, sizeof(float), 1, pFile2);
                 //printf("%f \n", buf);
             }
@@ -100,6 +103,7 @@ int cleanFile(char *pSrc1Fn, double min, double max, int prec, int swap)
         }
         size1 = size1 - 1;
     }
+    printf("All values between %f and %f\n", mi, ma);
     fclose(pFile1);
     fclose(pFile2);
     return EXIT_SUCCESS;
@@ -131,7 +135,7 @@ int main(int argc, char *argv[])
         prec = prec/8;
     } else {
         printf("Usage: \n");
-        printf("   ./clean filename1 precision(32 or 64) swap_endianness(1 or 0))\n");
+        printf("   ./clean filename1 Min Max precision(32 or 64) swap_endianness(1 or 0))\n");
         return EXIT_FAILURE;
     }
 
