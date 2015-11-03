@@ -70,61 +70,80 @@ int entropyAnalysis(uchar *tmpBuf, ulong size)
     return code;
 }
 
-
-int lzCompressFlopnt(uchar *dstBuf, ulong *outSize, uchar **tmpBuf, ulong offset, ushort prec, short level, short lossy)
+int getCode(int code[8], ushort prec, short lossy)
 {
-    ushort loss1, loss2, loss3;
+    int i;
+    if (VERBOSE) printf("Lossy : %d  ", lossy);
+    if (VERBOSE) printf(" -Byte compression layout: ");
+    for (i = 0; i < prec; i++)
+    {
+        if ((lossy/8) >= (i+1))
+        {
+            if (LIT_ENDIAN) code[i] = -1;
+            else code[prec-(i+1)] = -1;
+        }
+        if ((FORCE_COMP) && code[i] != -1) code[i] = 1;
+        if (((lossy/8) == i) && ((lossy%8) != 0)) code[i] = 2;
+        if (VERBOSE) printf("%d ", code[i]);
+    }
+    if (VERBOSE) printf("\n");
+    return EXIT_SUCCESS;
+}
+
+int maskArray(uchar *tmpBuf, ulong offset, short lossy)
+{
+    unsigned int i;
+    char preset[8] =   {255, 254, 252, 248, 240, 224, 192, 128};
+    unsigned char mask = preset[lossy%8];
+    if (VERBOSE) printf("Mask : %02X \n",mask);
+    for(i = 0; i < offset; i++) tmpBuf[i] = tmpBuf[i] & mask;
+    return EXIT_SUCCESS;
+}
+
+int lzCompressFlopnt(
+        uchar *dstBuf, 
+        ulong *outSize, 
+        uchar **tmpBuf, 
+        ulong offset, 
+        ushort prec, 
+        short level, 
+        short lossy )
+{
     struct timeval start, end;
-    ulong i, finalSize;
+    ulong finalSize;
     float t0 = 0, t1 = 0, t2 = 0;
-    int code[8];
+    int i, code[8];
     if ((prec != 4) && (prec != 8)) return EXIT_FAILURE;
     if ((level < 1) || (level > MAX_LEVEL)) return EXIT_FAILURE;
-    if ((lossy < 0) || (lossy > MAX_LOSSY)) return EXIT_FAILURE;
-    uchar *xtrBuf = malloc(2*offset);
+    if ((lossy < 0) || (lossy > (prec*8))) return EXIT_FAILURE;
     memcpy(dstBuf, outSize, sizeof(ulong));
     finalSize = sizeof(ulong);
     memcpy(dstBuf+finalSize, &lossy, sizeof(short));
     finalSize = finalSize + sizeof(short);
-    if (VERBOSE) printf(" -Byte compression layout: ");
+    getCode(code, prec, lossy);
     for (i = 0; i < prec; i++)
     {
         gettimeofday(&start, NULL);
-        code[i] = entropyAnalysis(tmpBuf[i], offset);
+        if (!FORCE_COMP) code[i] = entropyAnalysis(tmpBuf[i], offset);
         gettimeofday(&end, NULL);
         t0 = t0 + (end.tv_sec-start.tv_sec)+((end.tv_usec-start.tv_usec)/1000000.0);
-        if (i == 0)
-        {
-            if (code[i] == 0)
-            { // Sign and exponent in byte prec-1
-                loss1 = 0;
-                loss2 = 1;
-                loss3 = 2;
-            } else { // Sign and exponent in byte 0
-                loss1 = prec-1;
-                loss2 = prec-2;
-                loss3 = prec-3;
-            }
-        }
-        if (VERBOSE) printf("%d=>", code[i]);
-        if ((FORCE_COMP) && code[i] == 0) code[i] = 1;
-        if ((i == loss1) && (lossy >= 1)) code[i] = -1;
-        if ((i == loss2) && (lossy >= 2)) code[i] = -1;
-        if ((i == loss3) && (lossy >= 3)) code[i] = -1;
-        if (VERBOSE) printf("%d ", code[i]);
         memcpy(dstBuf+finalSize, code+i, sizeof(int));
         finalSize = finalSize + sizeof(int);
         if (code[i] > 0)
         { // Bytes that need to be compressed
+            if (code[i] == 2) maskArray(tmpBuf[i], offset, lossy);
             gettimeofday(&start, NULL);
+            uchar *xtrBuf = malloc(2*offset);
             *outSize = 2*offset;
             memset(xtrBuf, 0, offset);
             int r = lzCompress(xtrBuf, outSize, tmpBuf[i], offset, level);
-            if (VERBOSE) printf(": %d, ", r);
+            //if (VERBOSE) printf(": %d, ", r);
+            if (r < 0) return EXIT_FAILURE;
             memcpy(dstBuf+finalSize, outSize, sizeof(ulong));
             finalSize = finalSize + sizeof(ulong);
             memcpy(dstBuf+finalSize, xtrBuf, *outSize);
             finalSize = finalSize + *outSize;
+            free(xtrBuf);
             gettimeofday(&end, NULL);
             t1 = t1 + (end.tv_sec-start.tv_sec)+((end.tv_usec-start.tv_usec)/1000000.0);
         } else {
@@ -143,10 +162,8 @@ int lzCompressFlopnt(uchar *dstBuf, ulong *outSize, uchar **tmpBuf, ulong offset
             t2 = t2 + (end.tv_sec-start.tv_sec)+((end.tv_usec-start.tv_usec)/1000000.0);
         }
     }
-    if (VERBOSE) printf("\n");
     if (VERBOSE) printf("Entropy time: %f compressing time : %f Copy and discard time %f \n", t0, t1, t2);
     *outSize = finalSize;
-    free(xtrBuf);
     return EXIT_SUCCESS;
 }
 
@@ -158,13 +175,13 @@ int lzUncompressFlopnt(uchar **tmpBuf, ulong offset, uchar *srcBuf, ulong inSize
     ulong parSize, outSize, finalSize = sizeof(ulong);
     memcpy(&lossy, srcBuf+finalSize, sizeof(short));
     finalSize = finalSize + sizeof(short);
-    if (VERBOSE) printf(" -Byte compression layout: ");
+    if (VERBOSE) printf(" -Byte decompression layout: ");
     for (i = 0; i < size; i++)
     {
         outSize = offset;
         memcpy(code+i, srcBuf+finalSize, sizeof(int));
         finalSize = finalSize + sizeof(int);
-        if (VERBOSE) printf("%d, ", code[i]);
+        if (VERBOSE) printf("%d ", code[i]);
         memcpy(&parSize, srcBuf+finalSize, sizeof(ulong));
         finalSize = finalSize + sizeof(ulong);
         if (code[i] > 0)
@@ -181,18 +198,19 @@ int lzUncompressFlopnt(uchar **tmpBuf, ulong offset, uchar *srcBuf, ulong inSize
         }
     }
     if (VERBOSE) printf("\n");
-    if (finalSize != inSize) printf("Error while decoding double array!\n");
+    if (finalSize != inSize) printf("Error while decoding array!\n");
     return EXIT_SUCCESS;
 }
 
 
-int lzCompressFloat(uchar *dstBuf, ulong *outSize, float *darBuf, ulong daSize, short level, short lossy)
+int lzCompressFloat(uchar *dstBuf, ulong *outSize, float *darBuf, ulong daSize, short level, short protect)
 {
     lfloat lfBuf;
     uchar *tmpBuf[4];
     ushort j, size = sizeof(float);
     ulong i, offset = daSize;
     *outSize = offset*size;
+    short lossy = (sizeof(float)*8)-protect;
     for (i = 0; i < size; i++) tmpBuf[i] = malloc(offset);
     for (i = 0; i < daSize; i++)
     {
@@ -227,12 +245,13 @@ int lzUncompressFloat(float *darBuf, ulong *darSize, uchar *srcBuf, ulong inSize
 }
 
 
-int lzCompressDouble(uchar *dstBuf, ulong *outSize, double *daBuf, ulong daSize, short level, short lossy)
+int lzCompressDouble(uchar *dstBuf, ulong *outSize, double *daBuf, ulong daSize, short level, short protect)
 {
     float t0, t1;
     ldouble ldBuf;
     uchar *tmpBuf[8];
     struct timeval start, end;
+    short lossy = (sizeof(double)*8) - protect;
     ushort j, sChar = sizeof(char), size = sizeof(double);
     ulong i, offset = daSize;
     *outSize = offset*size;

@@ -26,8 +26,8 @@ extern "C" {
 #define FORCE_COMP          1
 #define VERBOSE             0
 #define BYTE_FREQ           1
-#define MAX_LOSSY           3
 #define MAX_LEVEL           9
+#define LIT_ENDIAN          1
 #define MAX_STATS           10000
 #define BUF_SIZE            (1024 * 1024)
 #define compress            mz_compress

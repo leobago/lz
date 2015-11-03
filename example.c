@@ -25,11 +25,11 @@
 #include "lz.h"
 
 
-int printResults(short lossy, ulong inSize, ulong outSize, float t1, float t2, double error)
+int printResults(short protect, ulong inSize, ulong outSize, float t1, float t2, double error)
 {
     float mb = 1024.0*1024.0;
-    printf("| %d bytes | %4.1f MB | %4.1f MB | %5.1f %% |  %05.1f s | %04.1f s | %7.4f |\n",
-            lossy, inSize/mb, outSize/mb, (outSize*100.0)/inSize, t1, t2, error);
+    printf("| %02d bits | %4.1f MB | %4.1f MB | %5.1f %% |  %05.1f s | %04.1f s |  %09.5f  |\n",
+            protect, inSize/mb, outSize/mb, (outSize*100.0)/inSize, t1, t2, error);
     return EXIT_SUCCESS;
 }
 
@@ -229,7 +229,7 @@ float uncompressFile(char *pDstFn, char *pUcmFn)
 }
 
 
-float lzCompressFile(char *pSrcFn, char *pDstFn, int prec, short level, short lossy)
+float lzCompressFile(char *pSrcFn, char *pDstFn, int prec, short level, short protect)
 {
     struct timeval start, end;
     ulong outSize, inSize, nbEle;
@@ -258,14 +258,14 @@ float lzCompressFile(char *pSrcFn, char *pDstFn, int prec, short level, short lo
         float *daBuf = malloc(inSize);
         fread(daBuf, prec, nbEle, pFile);
         gettimeofday(&start, NULL);
-        lzCompressFloat(dstBuf, &outSize, daBuf, nbEle, level, lossy);
+        lzCompressFloat(dstBuf, &outSize, daBuf, nbEle, level, protect);
         gettimeofday(&end, NULL);
         free(daBuf);
     } else {
         double *daBuf = malloc(inSize);
         fread(daBuf, prec, nbEle, pFile);
         gettimeofday(&start, NULL);
-        lzCompressDouble(dstBuf, &outSize, daBuf, nbEle, level, lossy);
+        lzCompressDouble(dstBuf, &outSize, daBuf, nbEle, level, protect);
         gettimeofday(&end, NULL);
         free(daBuf);
     }
@@ -393,20 +393,11 @@ int main(int argc, char *argv[])
     sprintf(pCmzFn, "%s.cmz", pSrcFn);
     sprintf(pUmzFn, "%s.umz", pSrcFn);
     printf("Original file %s, precision %d bits and compression level %d\n", pSrcFn, prec*8, level);
-    printf("===========================================================================================\n");
-    printf("                    |  Lossy  |  Input  |  Output | C.Ratio | Compress | Decomp |  Error  |\n");
-    printf("===========================================================================================\n");
- 
-    cmpTime = compressFile(pSrcFn, pCmzFn, level);
-    if (res == EXIT_FAILURE) return EXIT_FAILURE;
-    dcpTime = uncompressFile(pCmzFn, pUmzFn);
-    if (res == EXIT_FAILURE) return EXIT_FAILURE;
-    error = compareFiles(pSrcFn, pUmzFn, prec);
-    outSize = getFileSize(pCmzFn);
-    printf("* zip Compression   ");
-    printResults(0, inSize, outSize, cmpTime, dcpTime, error);
+    printf("===============================================================================================\n");
+    printf("                    | Protect |  Input  |  Output | C.Ratio | Compress | Decomp | Error Bound |\n");
+    printf("===============================================================================================\n");
    
-    for(i = 0; i < 4; i++)
+    for(i = 10; i <= 32; i=i+2)
     {
         sprintf(pClzFn, "%s.clz%i", pSrcFn, i);
         sprintf(pUlzFn, "%s.ulz%i", pSrcFn, i);
@@ -419,6 +410,15 @@ int main(int argc, char *argv[])
         printf("*  lz Compression   ");
         printResults(i, inSize, outSize, cmpTime, dcpTime, error);
     }
+ 
+    cmpTime = compressFile(pSrcFn, pCmzFn, level);
+    if (res == EXIT_FAILURE) return EXIT_FAILURE;
+    dcpTime = uncompressFile(pCmzFn, pUmzFn);
+    if (res == EXIT_FAILURE) return EXIT_FAILURE;
+    error = compareFiles(pSrcFn, pUmzFn, prec);
+    outSize = getFileSize(pCmzFn);
+    printf("* zip Compression   ");
+    printResults(0, inSize, outSize, cmpTime, dcpTime, error);
 
     return EXIT_SUCCESS;
 }
