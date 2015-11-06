@@ -94,9 +94,11 @@ int cleanFile(char *pSrc1Fn, double min, double max, int prec, int swap)
         } else {
             double buf;
             fread(&buf, sizeof(double), 1, pFile1);
-            //if (swap) buf = reverseDouble(buf);
+            if (swap) buf = reverseDouble(buf);
             if (buf >= min && buf <= max)
             {
+                if (buf > ma) ma = buf;
+                if (buf < mi) mi = buf;
                 fwrite(&buf, sizeof(double), 1, pFile2);
                 //printf("%f \n", buf);
             }
