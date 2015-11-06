@@ -25,11 +25,12 @@
 #include "lz.h"
 
 
-int printResults(short protect, ulong inSize, ulong outSize, float t1, float t2, double error)
+int printResults(char* fn, short protect, ulong inSize, ulong outSize, float t1, float t2, double error)
 {
     float mb = 1024.0*1024.0;
-    printf("| %02d bits | %4.1f MB | %4.1f MB | %5.1f %% |  %05.1f s | %04.1f s |  %09.5f  |\n",
-            protect, inSize/mb, outSize/mb, (outSize*100.0)/inSize, t1, t2, error);
+    printf("|  %02d  | %07.3f | %08.4f | %06.2f | %06.1f | %08.3f | %06.3f | %011.7f | %s \n",
+            protect, inSize/mb, outSize/mb, (outSize*100.0)/inSize, 100.0/((outSize*100.0)/inSize), 
+            t1, t2, error, fn);
     return EXIT_SUCCESS;
 }
 
@@ -389,15 +390,16 @@ int main(int argc, char *argv[])
         }
     }
 
+    double bound = 0.000001;
     inSize = getFileSize(pSrcFn);
     sprintf(pCmzFn, "%s.cmz", pSrcFn);
     sprintf(pUmzFn, "%s.umz", pSrcFn);
-    printf("Original file %s, precision %d bits and compression level %d\n", pSrcFn, prec*8, level);
-    printf("===============================================================================================\n");
-    printf("                    | Protect |  Input  |  Output | C.Ratio | Compress | Decomp | Error Bound |\n");
-    printf("===============================================================================================\n");
+    //printf("Original file %s, precision %d bits, compression level %d and error bound %f \n", pSrcFn, prec*8, level, bound);
+    printf("========================================================================================\n");
+    printf("| Bits | In (MB) | Out (MB) | CR (%%) | (X:1)  | Compress | Decomp | Error Bound | File \n");
+    printf("========================================================================================\n");
    
-    for(i = 10; i <= 32; i=i+2)
+    for(i = 1; i <= (prec*8); i++)
     {
         sprintf(pClzFn, "%s.clz%i", pSrcFn, i);
         sprintf(pUlzFn, "%s.ulz%i", pSrcFn, i);
@@ -407,10 +409,10 @@ int main(int argc, char *argv[])
         if (res == EXIT_FAILURE) return EXIT_FAILURE;
         error = compareFiles(pSrcFn, pUlzFn, prec);
         outSize = getFileSize(pClzFn);
-        printf("*  lz Compression   ");
-        printResults(i, inSize, outSize, cmpTime, dcpTime, error);
+        if (error <= bound) printResults(pSrcFn, i, inSize, outSize, cmpTime, dcpTime, error);
+        if (error <= bound) break;
     }
- 
+/* 
     cmpTime = compressFile(pSrcFn, pCmzFn, level);
     if (res == EXIT_FAILURE) return EXIT_FAILURE;
     dcpTime = uncompressFile(pCmzFn, pUmzFn);
@@ -419,7 +421,7 @@ int main(int argc, char *argv[])
     outSize = getFileSize(pCmzFn);
     printf("* zip Compression   ");
     printResults(0, inSize, outSize, cmpTime, dcpTime, error);
-
+*/
     return EXIT_SUCCESS;
 }
 
