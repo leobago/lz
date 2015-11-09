@@ -409,8 +409,15 @@ int main(int argc, char *argv[])
         if (res == EXIT_FAILURE) return EXIT_FAILURE;
         error = compareFiles(pSrcFn, pUlzFn, prec);
         outSize = getFileSize(pClzFn);
-        if (error <= bound) printResults(pSrcFn, i, inSize, outSize, cmpTime, dcpTime, error);
-        if (error <= bound) break;
+        //printf("%i\n", i);
+        if (error <= bound) 
+        {
+            printResults(pSrcFn, i, inSize, outSize, cmpTime, dcpTime, error);
+            break;
+        } else {
+            remove(pClzFn);
+            remove(pUlzFn);
+        }
     }
 /* 
     cmpTime = compressFile(pSrcFn, pCmzFn, level);
